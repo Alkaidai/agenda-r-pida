@@ -165,12 +165,13 @@ export default function Schedule() {
                   const userBooked = isUserBooked(day.dayOfWeek, slot.id);
                   const canModify = isWithinCutoff(day.dayOfWeek, slot);
                   const isFull = count >= MAX_PER_SLOT;
+                  const noCredits = remainingCredits <= 0 && !userBooked;
 
                   return (
                     <button
                       key={slot.id}
                       onClick={() => handleToggle(day.dayOfWeek, slot.id)}
-                      disabled={isLoading || (!userBooked && isFull) || !canModify}
+                      disabled={isLoading || (!userBooked && (isFull || noCredits)) || !canModify}
                       className={`w-full flex items-center justify-between rounded-lg border px-4 py-3 transition-all text-left
                         ${userBooked
                           ? 'border-slot-booked bg-slot-booked/10 hover:bg-slot-booked/20'
