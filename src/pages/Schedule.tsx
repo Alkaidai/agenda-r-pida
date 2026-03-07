@@ -127,6 +127,24 @@ export default function Schedule() {
           </Button>
         </div>
 
+        {/* Credits indicator */}
+        <div className="flex items-center justify-center mb-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 shadow-sm">
+            <Ticket className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">
+              Créditos: <span className={remainingCredits === 0 ? 'text-destructive' : 'text-primary'}>{remainingCredits}</span> / {MAX_WEEKLY_CREDITS}
+            </span>
+            <div className="flex gap-1 ml-1">
+              {Array.from({ length: MAX_WEEKLY_CREDITS }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`w-2.5 h-2.5 rounded-full ${i < userBookingsThisWeek ? 'bg-slot-booked' : 'bg-muted'}`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Schedule Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {DAYS.map((day, dayIdx) => (
