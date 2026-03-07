@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, ChevronLeft, ChevronRight, Users, Clock } from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight, Users, Clock, Ticket } from 'lucide-react';
 import { startOfWeek, addWeeks, format, setDay, isBefore, addMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -60,6 +60,10 @@ export default function Schedule() {
     return bookings.some(b => b.day_of_week === dayOfWeek && b.time_slot === slotId && b.user_id === user?.id);
   };
 
+  const MAX_WEEKLY_CREDITS = 3;
+  const userBookingsThisWeek = bookings.filter(b => b.user_id === user?.id).length;
+  const remainingCredits = MAX_WEEKLY_CREDITS - userBookingsThisWeek;
+
   const handleToggle = async (dayOfWeek: number, slotId: string) => {
     if (!isWithinCutoff(dayOfWeek, TIME_SLOTS.find(s => s.id === slotId)!)) {
       toast({ title: 'Prazo expirado', description: 'Só é possível agendar/desagendar até 30 minutos antes da aula.', variant: 'destructive' });
@@ -74,13 +78,17 @@ export default function Schedule() {
         toast({ title: 'Desagendado!', description: 'Seu horário foi liberado.' });
       }
     } else {
+      if (remainingCredits <= 0) {
+        toast({ title: 'Sem créditos', description: 'Você já usou suas 3 aulas desta semana.', variant: 'destructive' });
+        return;
+      }
       const count = getSlotBookings(dayOfWeek, slotId).length;
       if (count >= MAX_PER_SLOT) {
         toast({ title: 'Horário lotado', description: 'Este horário já atingiu o máximo de 6 pessoas.', variant: 'destructive' });
         return;
       }
       await book(dayOfWeek, slotId);
-      toast({ title: 'Agendado!', description: 'Seu horário foi reservado com sucesso.' });
+      toast({ title: 'Agendado!', description: `Seu horário foi reservado. Créditos restantes: ${remainingCredits - 1}` });
     }
   };
 
@@ -119,6 +127,24 @@ export default function Schedule() {
           </Button>
         </div>
 
+        {/* Credits indicator */}
+        <div className="flex items-center justify-center mb-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 shadow-sm">
+            <Ticket className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">
+              Créditos: <span className={remainingCredits === 0 ? 'text-destructive' : 'text-primary'}>{remainingCredits}</span> / {MAX_WEEKLY_CREDITS}
+            </span>
+            <div className="flex gap-1 ml-1">
+              {Array.from({ length: MAX_WEEKLY_CREDITS }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`w-2.5 h-2.5 rounded-full ${i < userBookingsThisWeek ? 'bg-slot-booked' : 'bg-muted'}`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Schedule Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {DAYS.map((day, dayIdx) => (
@@ -139,12 +165,13 @@ export default function Schedule() {
                   const userBooked = isUserBooked(day.dayOfWeek, slot.id);
                   const canModify = isWithinCutoff(day.dayOfWeek, slot);
                   const isFull = count >= MAX_PER_SLOT;
+                  const noCredits = remainingCredits <= 0 && !userBooked;
 
                   return (
                     <button
                       key={slot.id}
                       onClick={() => handleToggle(day.dayOfWeek, slot.id)}
-                      disabled={isLoading || (!userBooked && isFull) || !canModify}
+                      disabled={isLoading || (!userBooked && (isFull || noCredits)) || !canModify}
                       className={`w-full flex items-center justify-between rounded-lg border px-4 py-3 transition-all text-left
                         ${userBooked
                           ? 'border-slot-booked bg-slot-booked/10 hover:bg-slot-booked/20'
