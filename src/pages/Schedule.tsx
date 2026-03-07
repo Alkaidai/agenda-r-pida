@@ -60,6 +60,10 @@ export default function Schedule() {
     return bookings.some(b => b.day_of_week === dayOfWeek && b.time_slot === slotId && b.user_id === user?.id);
   };
 
+  const MAX_WEEKLY_CREDITS = 3;
+  const userBookingsThisWeek = bookings.filter(b => b.user_id === user?.id).length;
+  const remainingCredits = MAX_WEEKLY_CREDITS - userBookingsThisWeek;
+
   const handleToggle = async (dayOfWeek: number, slotId: string) => {
     if (!isWithinCutoff(dayOfWeek, TIME_SLOTS.find(s => s.id === slotId)!)) {
       toast({ title: 'Prazo expirado', description: 'Só é possível agendar/desagendar até 30 minutos antes da aula.', variant: 'destructive' });
