@@ -78,13 +78,17 @@ export default function Schedule() {
         toast({ title: 'Desagendado!', description: 'Seu horário foi liberado.' });
       }
     } else {
+      if (remainingCredits <= 0) {
+        toast({ title: 'Sem créditos', description: 'Você já usou suas 3 aulas desta semana.', variant: 'destructive' });
+        return;
+      }
       const count = getSlotBookings(dayOfWeek, slotId).length;
       if (count >= MAX_PER_SLOT) {
         toast({ title: 'Horário lotado', description: 'Este horário já atingiu o máximo de 6 pessoas.', variant: 'destructive' });
         return;
       }
       await book(dayOfWeek, slotId);
-      toast({ title: 'Agendado!', description: 'Seu horário foi reservado com sucesso.' });
+      toast({ title: 'Agendado!', description: `Seu horário foi reservado. Créditos restantes: ${remainingCredits - 1}` });
     }
   };
 
