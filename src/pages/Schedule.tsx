@@ -1,13 +1,17 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useBookings } from '@/hooks/useBookings';
+import { useRole } from '@/hooks/useRole';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, ChevronLeft, ChevronRight, Users, Clock, Ticket } from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight, Users, Clock, Ticket, Shield } from 'lucide-react';
 import { startOfWeek, addWeeks, format, setDay, isBefore, addMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const DAYS = [
   { dayOfWeek: 2, label: 'Terça-feira' },
@@ -27,6 +31,7 @@ const MAX_PER_SLOT = 6;
 
 export default function Schedule() {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useRole();
   const { toast } = useToast();
   const [weekOffset, setWeekOffset] = useState(0);
 
@@ -39,6 +44,23 @@ export default function Schedule() {
   const weekStartStr = format(currentWeekStart, 'yyyy-MM-dd');
 
   const { bookings, isLoading, book, unbook } = useBookings(weekStartStr);
+
+  // Get user profile for weekly_credits
+  const { data: profile } = useQuery({
+    queryKey: ['my-profile', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user!.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const MAX_WEEKLY_CREDITS = (profile as any)?.weekly_credits ?? 3;
 
   const getSlotDate = (dayOfWeek: number) => {
     return setDay(currentWeekStart, dayOfWeek, { weekStartsOn: 1 });
@@ -60,57 +82,68 @@ export default function Schedule() {
     return bookings.some(b => b.day_of_week === dayOfWeek && b.time_slot === slotId && b.user_id === user?.id);
   };
 
-  const MAX_WEEKLY_CREDITS = 3;
   const userBookingsThisWeek = bookings.filter(b => b.user_id === user?.id).length;
   const remainingCredits = MAX_WEEKLY_CREDITS - userBookingsThisWeek;
 
   const handleToggle = async (dayOfWeek: number, slotId: string) => {
-    if (!isWithinCutoff(dayOfWeek, TIME_SLOTS.find(s => s.id === slotId)!)) {
+    const slot = TIME_SLOTS.find(s => s.id === slotId)!;
+    if (!isWithinCutoff(dayOfWeek, slot)) {
       toast({ title: 'Prazo expirado', description: 'Só é possível agendar/desagendar até 30 minutos antes da aula.', variant: 'destructive' });
       return;
     }
 
     const booked = isUserBooked(dayOfWeek, slotId);
-    if (booked) {
-      const booking = bookings.find(b => b.day_of_week === dayOfWeek && b.time_slot === slotId && b.user_id === user?.id);
-      if (booking) {
-        await unbook(booking.id);
-        toast({ title: 'Desagendado!', description: 'Seu horário foi liberado.' });
+    try {
+      if (booked) {
+        const booking = bookings.find(b => b.day_of_week === dayOfWeek && b.time_slot === slotId && b.user_id === user?.id);
+        if (booking) {
+          await unbook(booking.id);
+          toast({ title: 'Desagendado!', description: 'Seu horário foi liberado e crédito devolvido.' });
+        }
+      } else {
+        if (remainingCredits <= 0) {
+          toast({ title: 'Sem créditos', description: `Você já usou suas ${MAX_WEEKLY_CREDITS} aulas desta semana.`, variant: 'destructive' });
+          return;
+        }
+        const count = getSlotBookings(dayOfWeek, slotId).length;
+        if (count >= MAX_PER_SLOT) {
+          toast({ title: 'Horário lotado', description: 'Este horário já atingiu o máximo de pessoas.', variant: 'destructive' });
+          return;
+        }
+        const classDate = format(getSlotDate(dayOfWeek), 'yyyy-MM-dd');
+        await book(dayOfWeek, slotId, classDate);
+        toast({ title: 'Agendado!', description: `Seu horário foi reservado. Créditos restantes: ${remainingCredits - 1}` });
       }
-    } else {
-      if (remainingCredits <= 0) {
-        toast({ title: 'Sem créditos', description: 'Você já usou suas 3 aulas desta semana.', variant: 'destructive' });
-        return;
-      }
-      const count = getSlotBookings(dayOfWeek, slotId).length;
-      if (count >= MAX_PER_SLOT) {
-        toast({ title: 'Horário lotado', description: 'Este horário já atingiu o máximo de 6 pessoas.', variant: 'destructive' });
-        return;
-      }
-      await book(dayOfWeek, slotId);
-      toast({ title: 'Agendado!', description: `Seu horário foi reservado. Créditos restantes: ${remainingCredits - 1}` });
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
     }
   };
 
-  const weekLabel = `${format(currentWeekStart, "dd 'de' MMM", { locale: ptBR })} - ${format(addWeeks(currentWeekStart, 0), "dd 'de' MMM", { locale: ptBR })}`;
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto flex items-center justify-between px-4 py-4">
           <div>
             <h1 className="text-xl font-heading font-bold text-foreground">Agenda de Aulas</h1>
             <p className="text-sm text-muted-foreground">Olá, {user?.user_metadata?.display_name || user?.email}</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={signOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sair
-          </Button>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/admin">
+                  <Shield className="h-4 w-4 mr-1" />
+                  Admin
+                </Link>
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={signOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 
-      {/* Week navigation */}
       <div className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-center gap-4 mb-6">
           <Button variant="outline" size="icon" onClick={() => setWeekOffset(w => w - 1)}>
@@ -127,7 +160,6 @@ export default function Schedule() {
           </Button>
         </div>
 
-        {/* Credits indicator */}
         <div className="flex items-center justify-center mb-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 shadow-sm">
             <Ticket className="h-4 w-4 text-primary" />
@@ -136,16 +168,12 @@ export default function Schedule() {
             </span>
             <div className="flex gap-1 ml-1">
               {Array.from({ length: MAX_WEEKLY_CREDITS }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`w-2.5 h-2.5 rounded-full ${i < userBookingsThisWeek ? 'bg-slot-booked' : 'bg-muted'}`}
-                />
+                <span key={i} className={`w-2.5 h-2.5 rounded-full ${i < userBookingsThisWeek ? 'bg-slot-booked' : 'bg-muted'}`} />
               ))}
             </div>
           </div>
         </div>
 
-        {/* Schedule Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {DAYS.map((day, dayIdx) => (
             <Card key={day.dayOfWeek} className="border-border/50 shadow-sm animate-fade-in" style={{ animationDelay: `${dayIdx * 100}ms` }}>
@@ -185,9 +213,7 @@ export default function Schedule() {
                     >
                       <div className="flex items-center gap-3">
                         <Clock className={`h-4 w-4 ${userBooked ? 'text-slot-booked' : 'text-muted-foreground'}`} />
-                        <span className="font-medium text-sm text-foreground">
-                          {slot.start} - {slot.end}
-                        </span>
+                        <span className="font-medium text-sm text-foreground">{slot.start} - {slot.end}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1">
@@ -197,15 +223,9 @@ export default function Schedule() {
                           </span>
                         </div>
                         {userBooked && (
-                          <Badge variant="secondary" className="text-xs bg-slot-booked/20 text-slot-booked border-0">
-                            Agendado
-                          </Badge>
+                          <Badge variant="secondary" className="text-xs bg-slot-booked/20 text-slot-booked border-0">Agendado</Badge>
                         )}
-                        {!canModify && (
-                          <Badge variant="secondary" className="text-xs">
-                            Encerrado
-                          </Badge>
-                        )}
+                        {!canModify && <Badge variant="secondary" className="text-xs">Encerrado</Badge>}
                       </div>
                     </button>
                   );
@@ -215,7 +235,6 @@ export default function Schedule() {
           ))}
         </div>
 
-        {/* Legend */}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-sm border border-border" />
