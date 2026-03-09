@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { setDay, format } from 'date-fns';
 
 export function useBookings(weekStart: string) {
   const { user } = useAuth();
@@ -13,7 +14,8 @@ export function useBookings(weekStart: string) {
       const { data, error } = await supabase
         .from('bookings')
         .select('*')
-        .eq('week_start', weekStart);
+        .eq('week_start', weekStart)
+        .eq('status', 'scheduled');
       if (error) throw error;
       return data;
     },
@@ -21,12 +23,12 @@ export function useBookings(weekStart: string) {
   });
 
   const bookMutation = useMutation({
-    mutationFn: async ({ dayOfWeek, timeSlot }: { dayOfWeek: number; timeSlot: string }) => {
-      const { error } = await supabase.from('bookings').insert({
-        user_id: user!.id,
-        day_of_week: dayOfWeek,
-        time_slot: timeSlot,
-        week_start: weekStart,
+    mutationFn: async ({ dayOfWeek, timeSlot, classDate }: { dayOfWeek: number; timeSlot: string; classDate: string }) => {
+      const { error } = await supabase.rpc('book_class', {
+        p_day_of_week: dayOfWeek,
+        p_time_slot: timeSlot,
+        p_week_start: weekStart,
+        p_class_date: classDate,
       });
       if (error) throw error;
     },
@@ -35,7 +37,10 @@ export function useBookings(weekStart: string) {
 
   const unbookMutation = useMutation({
     mutationFn: async (bookingId: string) => {
-      const { error } = await supabase.from('bookings').delete().eq('id', bookingId);
+      const { error } = await supabase.rpc('cancel_booking', {
+        p_booking_id: bookingId,
+        p_refund: true,
+      });
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
@@ -44,7 +49,8 @@ export function useBookings(weekStart: string) {
   return {
     bookings,
     isLoading,
-    book: (dayOfWeek: number, timeSlot: string) => bookMutation.mutateAsync({ dayOfWeek, timeSlot }),
+    book: (dayOfWeek: number, timeSlot: string, classDate: string) =>
+      bookMutation.mutateAsync({ dayOfWeek, timeSlot, classDate }),
     unbook: (bookingId: string) => unbookMutation.mutateAsync(bookingId),
   };
 }
