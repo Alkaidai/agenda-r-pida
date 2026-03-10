@@ -8,6 +8,7 @@ import { useRole } from "@/hooks/useRole";
 import Auth from "./pages/Auth";
 import Schedule from "./pages/Schedule";
 import NotFound from "./pages/NotFound";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/admin/Dashboard";
 import UsersPage from "./pages/admin/Users";
 import AdminBookings from "./pages/admin/AdminBookings";
