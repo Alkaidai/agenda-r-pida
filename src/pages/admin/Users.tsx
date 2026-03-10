@@ -186,9 +186,9 @@ export default function UsersPage() {
   });
 
   const sendPasswordReset = useMutation({
-    mutationFn: async ({ email }: { email: string }) => {
+    mutationFn: async ({ userId }: { userId: string }) => {
       const res = await supabase.functions.invoke('admin-reset-password', {
-        body: { email },
+        body: { userId },
       });
       if (res.error) throw new Error(res.error.message);
       if (res.data?.error) throw new Error(res.data.error);
