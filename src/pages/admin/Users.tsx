@@ -313,7 +313,7 @@ export default function UsersPage() {
                         {p.active ? 'Desativar' : 'Ativar'}
                       </Button>
 
-                      <Button variant="outline" size="sm" onClick={() => sendPasswordReset.mutate({ email: p.display_name })}>
+                      <Button variant="outline" size="sm" onClick={() => sendPasswordReset.mutate({ userId: p.user_id })}>
                         <RotateCcw className="h-4 w-4 mr-1" />
                         Reenviar senha
                       </Button>
