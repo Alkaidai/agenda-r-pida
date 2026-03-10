@@ -33,17 +33,21 @@ Deno.serve(async (req) => {
 
     if (!roleData) throw new Error("Apenas administradores podem redefinir senhas");
 
-    const { email } = await req.json();
-    if (!email) throw new Error("Email é obrigatório");
+    const { userId } = await req.json();
+    if (!userId) throw new Error("userId é obrigatório");
 
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Look up user email from auth
+    const { data: { user: targetUser }, error: getUserError } = await adminClient.auth.admin.getUserById(userId);
+    if (getUserError || !targetUser) throw new Error("Usuário não encontrado");
+
     const { error } = await adminClient.auth.admin.generateLink({
       type: "recovery",
-      email,
+      email: targetUser.email!,
     });
 
     if (error) throw error;
