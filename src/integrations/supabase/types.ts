@@ -129,6 +129,8 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          notes: string | null
+          phone: string | null
           user_id: string
           weekly_credits: number
         }
@@ -137,6 +139,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          notes?: string | null
+          phone?: string | null
           user_id: string
           weekly_credits?: number
         }
@@ -145,6 +149,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          notes?: string | null
+          phone?: string | null
           user_id?: string
           weekly_credits?: number
         }

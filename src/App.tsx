@@ -8,6 +8,7 @@ import { useRole } from "@/hooks/useRole";
 import Auth from "./pages/Auth";
 import Schedule from "./pages/Schedule";
 import NotFound from "./pages/NotFound";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/admin/Dashboard";
 import UsersPage from "./pages/admin/Users";
 import AdminBookings from "./pages/admin/AdminBookings";
@@ -48,6 +49,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
             <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/admin" element={<AdminRoute><Dashboard /></AdminRoute>} />
             <Route path="/admin/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
             <Route path="/admin/bookings" element={<AdminRoute><AdminBookings /></AdminRoute>} />
