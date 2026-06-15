@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
 import Auth from "./pages/Auth";
+import Index from "./pages/Index";
 import Schedule from "./pages/Schedule";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
@@ -47,7 +48,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
+            <Route path="/" element={<Index />} />
+            <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
             <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/admin" element={<AdminRoute><Dashboard /></AdminRoute>} />
